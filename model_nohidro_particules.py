@@ -49,10 +49,13 @@ h=0.015 #alçada iman(m)
 kb=1.38*10**(-23)
 temp=300
 mmag=1 #no ho se pero tampoc ho estic utilitzant
+rho=1
+V=4/3*np.pi*rh**3
 
 g=9.81 #m/s^2
 
 Fg=m*g
+Fe=rho*V*g
 xB=[]
 ygradB=[]
 yv=[]
@@ -77,7 +80,7 @@ for t in range(T):
             #print(gradB) 
             Fm=m*M*gradB #*L(mmag*a/muo/kb/temp*B)
             #print(L(mmag*a/muo/kb/temp*B))
-            v=(Fg+Fm)/(6*np.pi*mu*rh) #m/s (treballant en valor absolut)
+            v=(Fg+Fe+Fm)/(6*np.pi*mu*rh) #m/s (treballant en valor absolut)
             if t==0:
                 xB.append(y[i])
                 ygradB.append(gradB)
