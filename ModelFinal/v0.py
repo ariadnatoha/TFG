@@ -191,31 +191,27 @@ for n in range(num_steps):
     p_n.assign(p_)
     c_n.assign(c_)
 
+Guardar valors
 
 archivo_csv = '/Users/ariadnatoha/Desktop/condicions_inicials_ok/cco_t.csv'
 
-# Abrir el archivo CSV en modo escritura
 with open(archivo_csv, 'w', newline='') as archivo:
     escritor_csv = csv.writer(archivo)
 
-    # Escribir los elementos de la lista en el archivo CSV
     escritor_csv.writerow(concentracions_mean)
     escritor_csv.writerow(temps)
 datos_x = []
 datos_y = []
 
-# Leer el archivo CSV y extraer los datos
 with open(archivo_csv, 'r') as archivo:
     lector_csv = csv.reader(archivo)
     lector_csvok=zip(*lector_csv)
     for fila in lector_csvok:
-        # Supongamos que la primera columna contiene los datos x y la segunda columna contiene los datos y
         x = float(fila[0])
         y = float(fila[1])
         datos_x.append(x)
         datos_y.append(y)
 
-# Crear el gráfico de dispersión
 datosx_norm=[]
 for x in datos_x:
     datosx_norm.append(x/datos_x[1])
