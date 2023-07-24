@@ -7,7 +7,11 @@ import csv
 #Mallat:
 lbase = 1 #cm
 laltura = 3 #cm
-mesh = RectangleMesh(Point(0, 0), Point(lbase, laltura), 6*lbase, 8*laltura)
+mesh = RectangleMesh(Point(0, 0), Point(lbase, laltura), 7*lbase, 7*laltura)
+
+#Mallat no uniforme:
+x=mesh.coordinates()
+x[:,1]=x[:,1]**2/3
 
 V = VectorFunctionSpace(mesh, 'P', 2)
 Q = FunctionSpace(mesh, 'P', 1)
@@ -24,13 +28,12 @@ u_base  = DirichletBC(V, Constant((0, 0)), base)
 p_tapa  = DirichletBC(Q, Constant(101300), tapa)
 p_base = DirichletBC(Q, Constant(101300), base)
 c_parets  = DirichletBC(Q, Constant(0), parets)
-c_tapa = DirichletBC(Q, Constant(0), tapa)
 c_base = DirichletBC(Q, Constant(0), base)
+#c_base = DirichletBC(Q, Constant(3.4*pow(10,-9)), base)
 
 bcu = [u_parets, u_base, u_tapa]
-bcp = [p_tapa, p_base]
+bcp = []
 bcc = [c_base]
-#bcc = [c_parets, c_tapa, c_base]
 
 # Funcions trial/test:
 u = TrialFunction(V)
@@ -47,10 +50,10 @@ p_n = Function(Q)
 p_  = Function(Q)
 c_n=Function(Q)
 c_=Function(Q)
-
+abs_c = Function(Q)
 # Interval temporal:
-T = 216000 #s
-num_steps = 216000
+T = 122400 #s
+num_steps = 122400
 dt = T / num_steps 
 
 # Constants:
@@ -73,7 +76,8 @@ temp=Constant(300)
 g=Constant(9.81) #m/s^2
 Fg=m*g
 
-patm=Constant(101300)
+p_0=Constant(101300)
+#p_0=Expression('101300+0.0098*(3-x[1])',degree=1)
 rho=Constant(1)
 rh=Constant(15*10**(-9)) #m 
 
@@ -83,17 +87,16 @@ D=kb*temp/(6*np.pi*mu*rh)
 # Força magnètica:
 gradB=Expression('0.5*%e*0.7*0.7*(pow(pow(x[1]+%e,2)+0.7*0.7,-1.5)-pow(pow(x[1],2)+0.7*0.7,-1.5))'%(Br,h),degree=2)
 derivada_gradB=Expression('0.5*%e*0.7*0.7*(3*(3+x[1])*pow(pow(x[1]+%e,2)+0.7*0.7,-2.5)-3*x[1]*pow(pow(x[1],2)+0.7*0.7,-2.5))'%(Br,h),degree=2)
-#FALTA FER LA DERIVADA
 
 #gradB=Constant(-1)
 c_n.assign(Constant(3.4*pow(10,-9))) #REVISAR VALOR!!
-p_n.assign(patm)
+p_n.assign(p_0)
 u_n.assign(Constant([0,0]) )
 #M=Constant([0,0]) #Am^2/kg
 M=Constant([0,42.7]) #Am^2/kg
 f=gradB*c_n*M
-v_part=(m*M*g)/(6*np.pi*mu*rh)*gradB*100
-div_vpart=(m*42.7*g)/(6*np.pi*mu*rh)*derivada_gradB*10000
+v_part=(m*M*g)/(6*np.pi*mu*rh)*gradB
+div_vpart=(m*42.7*g)/(6*np.pi*mu*rh)*derivada_gradB
 eixY=Constant([0,1]) 
 
 #Definir Navier-Stokes:
@@ -139,6 +142,9 @@ A2 = assemble(a2)
 A3 = assemble(a3)
 A4 = assemble(a4)
 
+
+#u_base  = DirichletBC(V, v_part, base)
+#bcu = [u_parets, u_base, u_tapa]
 # Aplicar condicions de contorn:
 [bc.apply(A1) for bc in bcu]
 [bc.apply(A2) for bc in bcp]
@@ -154,6 +160,11 @@ temps=[t]
 for n in range(num_steps):
     a+=1
     t += dt
+
+    #c_base = DirichletBC(Q, Constant(3.4*pow(10,-9)*exp(-2.53*pow(10,-5)*t)), base)
+    #bcc = [c_base]
+
+    if t%1000==0: print(t)
 
     # Trobar velocitat intermitja
     b1 = assemble(L1)
@@ -181,42 +192,120 @@ for n in range(num_steps):
     cmax=np.array(c_.vector()).max()
     concentracions_max.append(cmax)
     temps.append(t)
+    '''
+    plot(u_)
+    c=plot(u_)
+    plt.colorbar(c)
+    plt.title ( 't=%.2fs' % (t) )
+    plt.draw()
+    plt.pause(0.01)
+    plt.clf()
+    '''
+
+    j_dif=-D*grad(c_)
+    j_adv=v_part*c_
+    j_conv=u_*c_
+    j_tot=j_conv+j_adv+j_dif
+    #Guardar en document
     
-    if a%5000==0: print(a)
+    if a%5000==0:
+        print(t)
+        plot (u_)
+        color_u=plot(u_)
+        plt.colorbar(color_u)
+        #plt.title ( 'Velocitats t=%.2fs' % (t) )
+        filename = ( '/Users/ariadnatoha/Desktop/condicions_inicials/u/v_t%d.png' % (t) )
+        plt.savefig (filename )
+        #print ( '  Guardat document "%s"' % ( filename ) )
+        plt.close ( )
+
+        #print(t)
+        plot (c_/3.4*pow(10,9))
+        color_c=plot(c_/3.4*pow(10,9))
+        plt.colorbar(color_c)
+        #plt.title ( 'Concentracions t=%.2fs' % (t) )
+        filename = ( '/Users/ariadnatoha/Desktop/condicions_inicials/c/c_t%d.png' % (t) )
+        plt.savefig ( filename )
+        #print ( '  Guardat document "%s"' % ( filename ) )
+        plt.close ( )
+        
+        
+        plot (j_conv)
+        color_jconv=plot(j_conv)
+        plt.colorbar(color_jconv)
+        #plt.title ( 'Concentracions t=%.2fs' % (t) )
+        filename = ( '/Users/ariadnatoha/Desktop/condicions_inicials/j/jconv_t%d.png' % (t) )
+        plt.savefig ( filename )
+        #print ( '  Guardat document "%s"' % ( filename ) )
+        plt.close ( )
+        
+        plot (j_dif)
+        color_jdif=plot(j_dif)
+        plt.colorbar(color_jdif)
+        #plt.title ( 'Concentracions t=%.2fs' % (t) )
+        filename = ( '/Users/ariadnatoha/Desktop/condicions_inicials/j/jdif_t%d.png' % (t) )
+        plt.savefig ( filename )
+        #print ( '  Guardat document "%s"' % ( filename ) )
+        plt.close ( )
+        
+        plot (j_adv)
+        color_jadv=plot(j_adv)
+        plt.colorbar(color_jadv)
+        #plt.title ( 'Concentracions t=%.2fs' % (t) )
+        filename = ( '/Users/ariadnatoha/Desktop/condicions_inicials/j/jadv_t%d.png' % (t) )
+        plt.savefig ( filename )
+        print ( '  Guardat document "%s"' % ( filename ) )
+        plt.close ( )
+        
+        
+        plot (j_tot)
+        color_jtot=plot(j_tot)
+        plt.colorbar(color_jtot)
+        #plt.title ( 'Concentracions t=%.2fs' % (t) )
+        filename = ( '/Users/ariadnatoha/Desktop/condicions_inicials/j/jtot_t%d.png' % (t) )
+        plt.savefig ( filename )
+        #print ( '  Guardat document "%s"' % ( filename ) )
+        plt.close ( )
+        
     # Comprovar si s'estabilitza
-    #print('mean c:', np.array(c_.vector()).mean())
+    #print('mean u:', np.array(u_.vector()).mean())
     concentracions_mean.append(float(np.array(c_.vector()).mean()))
     # Guardar les solucions
+    abs_c.vector()[:] = np.abs(c_.vector()[:])
     u_n.assign(u_)
     p_n.assign(p_)
-    c_n.assign(c_)
+    c_n.assign(abs_c)
 
+archivo_csv = '/Users/ariadnatoha/Desktop/condicions_inicials/condicions_inicials.csv'
 
-archivo_csv = '/Users/ariadnatoha/Desktop/condicions_inicials_ok/cco_t.csv'
-
+# Abrir el archivo CSV en modo escritura
 with open(archivo_csv, 'w', newline='') as archivo:
     escritor_csv = csv.writer(archivo)
+
+    # Escribir los elementos de la lista en el archivo CSV
     escritor_csv.writerow(concentracions_mean)
     escritor_csv.writerow(temps)
 datos_x = []
 datos_y = []
 
+# Leer el archivo CSV y extraer los datos
 with open(archivo_csv, 'r') as archivo:
     lector_csv = csv.reader(archivo)
     lector_csvok=zip(*lector_csv)
     for fila in lector_csvok:
+        # Supongamos que la primera columna contiene los datos x y la segunda columna contiene los datos y
         x = float(fila[0])
         y = float(fila[1])
         datos_x.append(x)
         datos_y.append(y)
 
+# Crear el gráfico de dispersión
 datosx_norm=[]
 for x in datos_x:
     datosx_norm.append(x/datos_x[1])
-
 plt.figure(figsize=(7,5))
 plt.plot(datos_y[1:], datosx_norm[1:],'o',markersize=1)
 plt.tick_params(top=False, bottom=True, left=True, right=False, direction='in', labelsize=15, length=5)
 plt.ylabel('c/c$_{o}$', fontsize=16)
-plt.xlabel('t (s)', fontsize=16)
+plt.xlabel('Temps (s)', fontsize=16)
 plt.show()
