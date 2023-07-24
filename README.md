@@ -8,3 +8,5 @@ S'efectuen diverses aproximacions:
 *AproxA: Es considera que la concentració és uniforme i constant en el temps.
 
 *AproxB: Es negligeix la difusió
+
+*Model final: S'estudia la convecció.
